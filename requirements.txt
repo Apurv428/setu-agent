@@ -1,6 +1,6 @@
 sarvamai
 openai
-mcp
+mcp[cli]
 langgraph
 langchain-mcp-adapters
 langchain-openai

@@ -1,9 +1,169 @@
 """
 scratch_agent.py — framework-free tool-calling agent loop.
 
-No LangChain, no LangGraph. A strict JSON protocol:
-  {"tool": "<name>", "args": {...}}  -> call a tool
-  {"final": "<answer>"}              -> done
+No LangChain, no LangGraph, no agent libraries.
+The entire mechanism is visible: the model proposes an action as JSON,
+we parse it, dispatch to a local tool function, append the observation,
+and repeat until the model emits a final answer or we hit max_steps.
+
+JSON protocol (the only two valid responses from the model):
+  {"tool": "<name>", "args": {<key>: <value>}}   → call a tool
+  {"final": "<answer>", "audio_path": "<path>"}  → done (audio_path optional)
 """
 
-# TODO: implement after mcp_server.py is verified via inspector
+import json
+import sys
+import sarvam_client as sc
+
+# ---------------------------------------------------------------------------
+# Tool implementations (same surface as mcp_server.py tools)
+# ---------------------------------------------------------------------------
+
+def _transcribe_audio(audio_path: str) -> str:
+    r = sc.transcribe(audio_path)
+    return f"Transcript: {r.text}\nLanguage: {r.language_code}"
+
+
+def _detect_language(text: str) -> str:
+    return sc.chat([{
+        "role": "user",
+        "content": (
+            "Identify the language of the following text and reply with ONLY its BCP-47 code "
+            "(e.g. hi-IN, ta-IN, mr-IN, en-IN). No explanation.\n\n" + text
+        ),
+    }]).strip()
+
+
+def _translate_text(text: str, source_language_code: str, target_language_code: str) -> str:
+    return sc.translate(text, target_language_code=target_language_code,
+                        source_language_code=source_language_code)
+
+
+def _answer_question(question: str) -> str:
+    return sc.chat([{"role": "user", "content": question}])
+
+
+def _synthesize_speech(text: str, target_language_code: str) -> str:
+    return sc.synthesize(text, target_language_code=target_language_code)
+
+
+TOOLS: dict = {
+    "transcribe_audio": _transcribe_audio,
+    "detect_language":  _detect_language,
+    "translate_text":   _translate_text,
+    "answer_question":  _answer_question,
+    "synthesize_speech": _synthesize_speech,
+}
+
+# ---------------------------------------------------------------------------
+# System prompt
+# ---------------------------------------------------------------------------
+
+SYSTEM = """\
+You are Setu, a multilingual voice assistant powered by Sarvam AI.
+You have access to these tools:
+
+  transcribe_audio(audio_path: str)
+    Transcribes a WAV file. Returns transcript text and detected language code.
+
+  detect_language(text: str)
+    Returns the BCP-47 language code of the text (e.g. hi-IN, ta-IN, en-IN).
+
+  translate_text(text: str, source_language_code: str, target_language_code: str)
+    Translates text. Pass "auto" as source_language_code to auto-detect.
+
+  answer_question(question: str)
+    Answers a question using the Sarvam chat model.
+
+  synthesize_speech(text: str, target_language_code: str)
+    Converts text to speech; returns the path to the saved WAV file.
+
+Instructions:
+- If the input is an audio file path, start by transcribing it.
+- Detect or infer the user's language and reply in that same language.
+- Translate to English before calling answer_question if that helps accuracy.
+- Always call synthesize_speech as the last step so the reply is spoken.
+- Reply with ONLY valid JSON — no prose, no markdown fences. Use:
+    {"tool": "<name>", "args": {"<key>": "<value>"}}
+  or, when finished:
+    {"final": "<answer text>", "audio_path": "<path returned by synthesize_speech>"}
+"""
+
+# ---------------------------------------------------------------------------
+# Agent loop
+# ---------------------------------------------------------------------------
+
+def run(user_input: str, max_steps: int = 10) -> dict:
+    """
+    Run the agent loop on a text query or audio file path.
+    Returns {"final": <answer str>, "audio_path": <wav path or None>}.
+    """
+    messages = [
+        {"role": "system", "content": SYSTEM},
+        {"role": "user",   "content": user_input},
+    ]
+
+    for step in range(max_steps):
+        raw = sc.chat(messages)
+        messages.append({"role": "assistant", "content": raw})
+
+        # Strip markdown code fences the model sometimes adds
+        text = raw.strip()
+        if text.startswith("```"):
+            parts = text.split("```")
+            text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
+
+        try:
+            action = json.loads(text)
+        except json.JSONDecodeError:
+            messages.append({
+                "role": "user",
+                "content": (
+                    "Your last reply was not valid JSON. "
+                    'Reply with ONLY: {"tool": "...", "args": {...}} or {"final": "..."}'
+                ),
+            })
+            continue
+
+        if "final" in action:
+            return {
+                "final": action["final"],
+                "audio_path": action.get("audio_path"),
+            }
+
+        tool_name = action.get("tool")
+        if not tool_name:
+            messages.append({
+                "role": "user",
+                "content": 'Missing "tool" key. Use {"tool": "...", "args": {...}}.',
+            })
+            continue
+
+        args = action.get("args", {})
+        if tool_name not in TOOLS:
+            observation = f"Unknown tool '{tool_name}'. Available: {list(TOOLS)}"
+        else:
+            try:
+                observation = str(TOOLS[tool_name](**args))
+            except Exception as exc:
+                observation = f"Error in {tool_name}: {exc}"
+
+        print(f"  step {step + 1}: {tool_name}({args})")
+        print(f"           → {str(observation)[:200]}")
+        messages.append({"role": "user", "content": f"Observation: {observation}"})
+
+    return {"final": "Stopped: max steps reached.", "audio_path": None}
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    query = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else \
+        "What is the capital of India? Answer in Hindi and speak the reply."
+    print(f"Query: {query}\n")
+    result = run(query)
+    print(f"\nFinal: {result['final']}")
+    if result.get("audio_path"):
+        print(f"Audio: {result['audio_path']}")
