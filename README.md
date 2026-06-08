@@ -45,6 +45,7 @@
                                │  translate_text    ────────► Sarvam-Translate
                                │  answer_question   ────────► sarvam-30b
                                │  synthesize_speech ────────► Bulbul v3
+                               │  search_knowledge  ────────► local RAG index
                                └──────────────────────────────┘
                                               │
                                               ▼
@@ -168,7 +169,7 @@ python app.py --agent graph --text "महाराष्ट्र की रा
 
 ## MCP Tools — verified results
 
-All five tools were verified live in the MCP Inspector (v0.22.0) against the Sarvam API.
+All six tools were verified live in the MCP Inspector (v0.22.0) against the Sarvam API.
 
 ---
 
@@ -280,13 +281,48 @@ All Sarvam-specific request shapes, model IDs, and response formats live in one 
 
 <br>
 
+## Eval pipeline
+
+Quality is measured, not assumed. `eval/run_eval.py` runs 15 labeled test cases across four categories and prints a per-category accuracy summary.
+
+```bash
+python eval/run_eval.py
+```
+
+Sample output:
+
+```
+==================================================
+  Category        Passed  Total  Accuracy
+  --------------------------------------
+  answer               4      5    80.0%
+  translation          4      4   100.0%
+  lang_detect          3      3   100.0%
+  round_trip           2      3    66.7%
+  --------------------------------------
+  Overall             13     15    86.7%
+==================================================
+Results written to eval/results.json
+```
+
+Scoring method per category:
+
+| Category | How scored |
+|---|---|
+| `answer` | LLM-as-judge: the Sarvam chat model returns PASS or FAIL with a one-line reason |
+| `translation` | LLM-as-judge: same judge prompt, comparing to a reference translation |
+| `lang_detect` | Exact match on the returned BCP-47 code |
+| `round_trip` | String similarity between original text and re-transcribed text (threshold 0.60) |
+
+Full results with per-case details are written to `eval/results.json`.
+
+<br>
+
 ## Limitations and next steps
 
-- **Streaming** — Saaras and Bulbul both support WebSocket streaming for lower latency; this version uses the batch REST API.
-- **RAG** — adding a `search_knowledge` tool backed by a small vector index would give the agent a real reason to choose between tools.
-- **Eval** — a scored set of question/expected-answer pairs would make quality measurable and map directly to "eval pipelines and quality metrics."
-- **Memory** — the agent currently has no memory across turns.
-- **Observability** — tool-call tracing and guardrails before TTS output are natural next steps for a production deployment.
+- **Streaming**, Saaras and Bulbul both support WebSocket streaming for lower latency; this version uses the batch REST API.
+- **Memory**, the agent currently has no cross-turn memory; adding a checkpointer or a simple message history would enable follow-up questions.
+- **Observability**, tool-call tracing and guardrails before TTS output are natural next steps for a production deployment.
 
 <br>
 
