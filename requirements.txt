@@ -1,0 +1,9 @@
+sarvamai
+openai
+mcp
+langgraph
+langchain-mcp-adapters
+langchain-openai
+sounddevice
+python-dotenv
+scipy

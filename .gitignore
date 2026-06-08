@@ -1,0 +1,19 @@
+# secrets
+.env
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# generated audio
+*.wav
+*.mp3
+
+# internal build / session files
+STATE.md
+CLAUDE.md
+ARCHITECTURE.md
+.claude/
+Setu_Weekend_Build_Spec.md
