@@ -7,8 +7,12 @@ we parse it, dispatch to a local tool function, append the observation,
 and repeat until the model emits a final answer or we hit max_steps.
 
 JSON protocol (the only two valid responses from the model):
-  {"tool": "<name>", "args": {<key>: <value>}}   → call a tool
-  {"final": "<answer>", "audio_path": "<path>"}  → done (audio_path optional)
+  {"tool": "<name>", "args": {<key>: <value>}}   -> call a tool
+  {"final": "<answer>", "audio_path": "<path>"}  -> done (audio_path optional)
+
+Multi-turn usage:
+  result, history = run("first question")
+  result, history = run("follow-up", history=history)
 """
 
 import json
@@ -111,15 +115,24 @@ Instructions:
 # Agent loop
 # ---------------------------------------------------------------------------
 
-def run(user_input: str, max_steps: int = 10) -> dict:
+def run(
+    user_input: str,
+    history: list[dict] | None = None,
+    max_steps: int = 10,
+) -> tuple[dict, list[dict]]:
     """
     Run the agent loop on a text query or audio file path.
-    Returns {"final": <answer str>, "audio_path": <wav path or None>}.
+
+    Pass history from a previous call to maintain conversation context across turns.
+    Returns (result_dict, updated_history) where result_dict has keys
+    "final" (answer string) and "audio_path" (wav path or None).
     """
-    messages = [
-        {"role": "system", "content": SYSTEM},
-        {"role": "user",   "content": user_input},
-    ]
+    if history is None:
+        messages: list[dict] = [{"role": "system", "content": SYSTEM}]
+    else:
+        messages = list(history)  # copy so caller's list is not mutated
+
+    messages.append({"role": "user", "content": user_input})
 
     for step in range(max_steps):
         raw = sc.chat(messages)
@@ -144,10 +157,11 @@ def run(user_input: str, max_steps: int = 10) -> dict:
             continue
 
         if "final" in action:
-            return {
+            result = {
                 "final": action["final"],
                 "audio_path": action.get("audio_path"),
             }
+            return result, messages
 
         tool_name = action.get("tool")
         if not tool_name:
@@ -167,10 +181,11 @@ def run(user_input: str, max_steps: int = 10) -> dict:
                 observation = f"Error in {tool_name}: {exc}"
 
         print(f"  step {step + 1}: {tool_name}({args})")
-        print(f"           → {str(observation)[:200]}")
+        print(f"           -> {str(observation)[:200]}")
         messages.append({"role": "user", "content": f"Observation: {observation}"})
 
-    return {"final": "Stopped: max steps reached.", "audio_path": None}
+    result = {"final": "Stopped: max steps reached.", "audio_path": None}
+    return result, messages
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +196,7 @@ if __name__ == "__main__":
     query = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else \
         "What is the capital of India? Answer in Hindi and speak the reply."
     print(f"Query: {query}\n")
-    result = run(query)
+    result, _ = run(query)
     print(f"\nFinal: {result['final']}")
     if result.get("audio_path"):
         print(f"Audio: {result['audio_path']}")
