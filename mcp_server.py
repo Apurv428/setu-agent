@@ -55,5 +55,18 @@ def synthesize_speech(text: str, target_language_code: str) -> str:
     return sc.synthesize(text, target_language_code=target_language_code)
 
 
+@mcp.tool()
+def search_knowledge(query: str) -> str:
+    """Search the local knowledge base for facts about Indian languages, Sarvam AI models, and Indic scripts. Call this before answer_question when the question is about Indian languages, their history, scripts, speaker counts, or Sarvam's capabilities."""
+    import retrieval
+    try:
+        passages = retrieval.search(query, k=3)
+    except Exception as exc:
+        return f"Knowledge search unavailable: {exc}"
+    if not passages:
+        return "No relevant passages found."
+    return "\n\n---\n\n".join(passages)
+
+
 if __name__ == "__main__":
     mcp.run()

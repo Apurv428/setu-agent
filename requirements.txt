@@ -7,3 +7,6 @@ langchain-openai
 sounddevice
 python-dotenv
 scipy
+sentence-transformers
+numpy
+pytest

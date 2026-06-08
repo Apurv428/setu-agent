@@ -47,12 +47,24 @@ def _synthesize_speech(text: str, target_language_code: str) -> str:
     return sc.synthesize(text, target_language_code=target_language_code)
 
 
+def _search_knowledge(query: str) -> str:
+    import retrieval
+    try:
+        passages = retrieval.search(query, k=3)
+    except Exception as exc:
+        return f"Knowledge search unavailable: {exc}"
+    if not passages:
+        return "No relevant passages found."
+    return "\n\n---\n\n".join(passages)
+
+
 TOOLS: dict = {
-    "transcribe_audio": _transcribe_audio,
-    "detect_language":  _detect_language,
-    "translate_text":   _translate_text,
-    "answer_question":  _answer_question,
+    "transcribe_audio":  _transcribe_audio,
+    "detect_language":   _detect_language,
+    "translate_text":    _translate_text,
+    "answer_question":   _answer_question,
     "synthesize_speech": _synthesize_speech,
+    "search_knowledge":  _search_knowledge,
 }
 
 # ---------------------------------------------------------------------------
@@ -77,6 +89,12 @@ You have access to these tools:
 
   synthesize_speech(text: str, target_language_code: str)
     Converts text to speech; returns the path to the saved WAV file.
+
+  search_knowledge(query: str)
+    Search a local knowledge base about Indian languages, Indic scripts, and
+    Sarvam AI models. Call this before answer_question when the question is
+    knowledge-grounded (about Indian languages, their history, scripts, or
+    Sarvam's capabilities).
 
 Instructions:
 - If the input is an audio file path, start by transcribing it.
