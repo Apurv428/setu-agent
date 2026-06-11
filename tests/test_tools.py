@@ -125,3 +125,50 @@ def test_synthesize_speech_passes_correct_args():
     assert captured["lang"] == "en-IN"
 
 
+# ---------------------------------------------------------------------------
+# search_knowledge
+# ---------------------------------------------------------------------------
+
+def test_search_knowledge_formats_results():
+    fake_results = [
+        {"source": "hindi_language.md", "text": "Hindi is an Indo-Aryan language.", "score": 0.85},
+        {"source": "indic_scripts.md",  "text": "Devanagari is used to write Hindi.", "score": 0.72},
+    ]
+    with patch("mcp_server._retrieval") as mock_retrieval:
+        mock_retrieval.search.return_value = fake_results
+        result = mcp_server.search_knowledge("Hindi script")
+    assert "hindi_language.md" in result
+    assert "0.85" in result
+    assert "Hindi is an Indo-Aryan language." in result
+    assert "indic_scripts.md" in result
+
+
+def test_search_knowledge_returns_no_knowledge_found_when_low_scores():
+    fake_results = [
+        {"source": "a.md", "text": "some text", "score": 0.20},
+        {"source": "b.md", "text": "other text", "score": 0.15},
+    ]
+    with patch("mcp_server._retrieval") as mock_retrieval:
+        mock_retrieval.search.return_value = fake_results
+        result = mcp_server.search_knowledge("completely unrelated query")
+    assert result == "NO_RELEVANT_KNOWLEDGE_FOUND"
+
+
+def test_search_knowledge_returns_no_knowledge_found_on_empty_results():
+    with patch("mcp_server._retrieval") as mock_retrieval:
+        mock_retrieval.search.return_value = []
+        result = mcp_server.search_knowledge("anything")
+    assert result == "NO_RELEVANT_KNOWLEDGE_FOUND"
+
+
+def test_search_knowledge_passes_query_to_retrieval():
+    captured = {}
+    def fake_search(query, k=3):
+        captured["query"] = query
+        return [{"source": "x.md", "text": "text", "score": 0.9}]
+    with patch("mcp_server._retrieval") as mock_retrieval:
+        mock_retrieval.search.side_effect = fake_search
+        mcp_server.search_knowledge("Devanagari script facts")
+    assert captured["query"] == "Devanagari script facts"
+
+

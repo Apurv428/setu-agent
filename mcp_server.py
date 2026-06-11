@@ -20,6 +20,7 @@ load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 from mcp.server.fastmcp import FastMCP
 import sarvam_client as sc
+import retrieval as _retrieval
 
 mcp = FastMCP("sarvam-tools")
 
@@ -72,9 +73,8 @@ def synthesize_speech(text: str, target_language_code: str) -> str:
 @mcp.tool()
 def search_knowledge(query: str) -> str:
     """Search the local knowledge base about Indian languages and scripts. Use this BEFORE answer_question when the user asks about Indian languages, scripts, or related facts."""
-    import retrieval
     LOW_SCORE = 0.35
-    results = retrieval.search(query, k=3)
+    results = _retrieval.search(query, k=3)
     if not results or all(r["score"] < LOW_SCORE for r in results):
         return "NO_RELEVANT_KNOWLEDGE_FOUND"
     parts = []
