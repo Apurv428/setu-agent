@@ -1,20 +1,94 @@
 [
-  {"type": "answer",      "question": "What is the capital of India?",                              "reference": "New Delhi"},
-  {"type": "answer",      "question": "How many scheduled languages does India have?",              "reference": "22"},
-  {"type": "answer",      "question": "Which Indian language has the oldest literary tradition?",   "reference": "Tamil"},
-  {"type": "answer",      "question": "What script is used to write Hindi?",                        "reference": "Devanagari"},
-  {"type": "answer",      "question": "In which year did the Indian Constitution come into effect?","reference": "1950"},
-
-  {"type": "translation", "text": "Hello, how are you?",  "source_lang": "en-IN", "target_lang": "hi-IN", "reference": "नमस्ते, आप कैसे हैं?"},
-  {"type": "translation", "text": "Thank you very much",  "source_lang": "en-IN", "target_lang": "ta-IN", "reference": "மிகவும் நன்றி"},
-  {"type": "translation", "text": "Good morning",         "source_lang": "en-IN", "target_lang": "mr-IN", "reference": "सुप्रभात"},
-  {"type": "translation", "text": "What is your name?",  "source_lang": "en-IN", "target_lang": "bn-IN", "reference": "আপনার নাম কী?"},
-
-  {"type": "lang_detect", "text": "नमस्ते, आप कैसे हैं?",            "expected_lang": "hi-IN"},
-  {"type": "lang_detect", "text": "வணக்கம், எப்படி இருக்கிறீர்கள்?", "expected_lang": "ta-IN"},
-  {"type": "lang_detect", "text": "নমস্কার, আপনি কেমন আছেন?",        "expected_lang": "bn-IN"},
-
-  {"type": "round_trip",  "text": "नमस्ते",    "lang": "hi-IN"},
-  {"type": "round_trip",  "text": "வணக்கம்",  "lang": "ta-IN"},
-  {"type": "round_trip",  "text": "ধন্যবাদ",   "lang": "bn-IN"}
+  {
+    "id": "qa_01",
+    "category": "qa",
+    "question": "Which script is used to write Marathi?",
+    "reference_answer": "Marathi is written in the Devanagari script."
+  },
+  {
+    "id": "qa_02",
+    "category": "qa",
+    "question": "How many characters does the Tamil script have in total?",
+    "reference_answer": "The Tamil script has 247 characters."
+  },
+  {
+    "id": "qa_03",
+    "category": "qa",
+    "question": "What are the two main language families spoken in India?",
+    "reference_answer": "The two main language families are Indo-Aryan and Dravidian."
+  },
+  {
+    "id": "qa_04",
+    "category": "qa",
+    "question": "How many scheduled languages does the Indian Constitution recognize?",
+    "reference_answer": "The Indian Constitution recognizes 22 scheduled languages."
+  },
+  {
+    "id": "tr_01",
+    "category": "translation",
+    "text": "Hello, how are you?",
+    "source_lang": "en-IN",
+    "target_lang": "hi-IN",
+    "reference": "नमस्ते, आप कैसे हैं?"
+  },
+  {
+    "id": "tr_02",
+    "category": "translation",
+    "text": "Thank you very much",
+    "source_lang": "en-IN",
+    "target_lang": "ta-IN",
+    "reference": "மிகவும் நன்றி"
+  },
+  {
+    "id": "tr_03",
+    "category": "translation",
+    "text": "Good morning",
+    "source_lang": "en-IN",
+    "target_lang": "mr-IN",
+    "reference": "सुप्रभात"
+  },
+  {
+    "id": "tr_04",
+    "category": "translation",
+    "text": "What is your name?",
+    "source_lang": "en-IN",
+    "target_lang": "bn-IN",
+    "reference": "আপনার নাম কী?"
+  },
+  {
+    "id": "ld_01",
+    "category": "lang_detect",
+    "text": "नमस्ते, आप कैसे हैं?",
+    "expected_lang": "hi-IN"
+  },
+  {
+    "id": "ld_02",
+    "category": "lang_detect",
+    "text": "வணக்கம், எப்படி இருக்கிறீர்கள்?",
+    "expected_lang": "ta-IN"
+  },
+  {
+    "id": "ld_03",
+    "category": "lang_detect",
+    "text": "নমস্কার, আপনি কেমন আছেন?",
+    "expected_lang": "bn-IN"
+  },
+  {
+    "id": "rt_01",
+    "category": "round_trip",
+    "text": "नमस्ते",
+    "lang": "hi-IN"
+  },
+  {
+    "id": "rt_02",
+    "category": "round_trip",
+    "text": "வணக்கம்",
+    "lang": "ta-IN"
+  },
+  {
+    "id": "rt_03",
+    "category": "round_trip",
+    "text": "ধন্যবাদ",
+    "lang": "bn-IN"
+  }
 ]

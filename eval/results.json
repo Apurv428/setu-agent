@@ -1,0 +1,249 @@
+{
+  "timestamp": "2026-06-11T16:06:33.812542+00:00",
+  "overall": 0.9286,
+  "by_category": {
+    "qa": {
+      "passed": 3,
+      "total": 4,
+      "accuracy": 0.75
+    },
+    "translation": {
+      "passed": 4,
+      "total": 4,
+      "accuracy": 1.0
+    },
+    "lang_detect": {
+      "passed": 3,
+      "total": 3,
+      "accuracy": 1.0
+    },
+    "round_trip": {
+      "passed": 3,
+      "total": 3,
+      "accuracy": 1.0
+    }
+  },
+  "cases": [
+    {
+      "id": "qa_01",
+      "category": "qa",
+      "input": {
+        "id": "qa_01",
+        "category": "qa",
+        "question": "Which script is used to write Marathi?",
+        "reference_answer": "Marathi is written in the Devanagari script."
+      },
+      "result": {
+        "candidate": "Marathi is written using the Devanagari script. The Devanagari script is one of the most widely used Indic scripts and is used to write Marathi, Hindi, Sanskrit, Nepali, Konkani, and several other languages. It has 11 vowels, 33 consonants, and various conjunct consonants formed by combining consonants.",
+        "passed": false,
+        "reason": "judge_parse_error"
+      }
+    },
+    {
+      "id": "qa_02",
+      "category": "qa",
+      "input": {
+        "id": "qa_02",
+        "category": "qa",
+        "question": "How many characters does the Tamil script have in total?",
+        "reference_answer": "The Tamil script has 247 characters."
+      },
+      "result": {
+        "candidate": "The Tamil script has a total of 247 characters, consisting of 12 vowels, 18 consonants, and 216 compound letters.",
+        "passed": true,
+        "reason": "Candidate includes the same total count plus extra details, core meaning matches."
+      }
+    },
+    {
+      "id": "qa_03",
+      "category": "qa",
+      "input": {
+        "id": "qa_03",
+        "category": "qa",
+        "question": "What are the two main language families spoken in India?",
+        "reference_answer": "The two main language families are Indo-Aryan and Dravidian."
+      },
+      "result": {
+        "candidate": "The two main language families spoken in India are:\n\n1. Indo-Aryan family - This is the largest family, covering approximately 75% of India's population. It includes languages like Hindi, Bengali, Marathi, Gujarati, Punjabi, Odia, Assamese, Sindhi, Urdu, Nepali, Kashmiri, Maithili, Konkani, Dogri, and Sindhi. These languages descend from Sanskrit and are spoken primarily in northern, western, and central India.\n\n2. Dravidian family - This family covers approximately 20% of India's population. The four major Dravidian languages are Tamil, Telugu, Kannada, and Malayalam, all spoken in southern India. These languages developed independently and have no proven connection to Indo-Aryan languages. Tamil is the oldest, with a literary tradition going back over 2,000 years.",
+        "passed": true,
+        "reason": "The candidate correctly identifies the two main language families as Indo-Aryan and Dravidian, consistent with the reference."
+      }
+    },
+    {
+      "id": "qa_04",
+      "category": "qa",
+      "input": {
+        "id": "qa_04",
+        "category": "qa",
+        "question": "How many scheduled languages does the Indian Constitution recognize?",
+        "reference_answer": "The Indian Constitution recognizes 22 scheduled languages."
+      },
+      "result": {
+        "candidate": "The Indian Constitution recognizes 22 scheduled languages in the Eighth Schedule. These are: Assamese, Bengali, Bodo, Dogri, Gujarati, Hindi, Kannada, Kashmiri, Konkani, Maithili, Malayalam, Manipuri (Meitei), Marathi, Nepali, Odia, Punjabi, Sanskrit, Santali, Sindhi, Tamil, Telugu, and Urdu.",
+        "passed": true,
+        "reason": "The candidate correctly states there are 22 scheduled languages and provides the correct list, which aligns with the reference."
+      }
+    },
+    {
+      "id": "tr_01",
+      "category": "translation",
+      "input": {
+        "id": "tr_01",
+        "category": "translation",
+        "text": "Hello, how are you?",
+        "source_lang": "en-IN",
+        "target_lang": "hi-IN",
+        "reference": "नमस्ते, आप कैसे हैं?"
+      },
+      "result": {
+        "candidate": "नमस्ते, आप कैसे हैं?",
+        "passed": true,
+        "reason": "Identical text, thus identical meaning."
+      }
+    },
+    {
+      "id": "tr_02",
+      "category": "translation",
+      "input": {
+        "id": "tr_02",
+        "category": "translation",
+        "text": "Thank you very much",
+        "source_lang": "en-IN",
+        "target_lang": "ta-IN",
+        "reference": "மிகவும் நன்றி"
+      },
+      "result": {
+        "candidate": "மிக்க நன்றி.",
+        "passed": true,
+        "reason": "இரண்டுமே நன்றியைத் தெரிவிக்கும் பொருளைக் கொண்டுள்ளன, அதாவது 'மிக்க நன்றி' (thank you very much)."
+      }
+    },
+    {
+      "id": "tr_03",
+      "category": "translation",
+      "input": {
+        "id": "tr_03",
+        "category": "translation",
+        "text": "Good morning",
+        "source_lang": "en-IN",
+        "target_lang": "mr-IN",
+        "reference": "सुप्रभात"
+      },
+      "result": {
+        "candidate": "सुप्रभात",
+        "passed": true,
+        "reason": "The candidate's answer is an exact match for the reference."
+      }
+    },
+    {
+      "id": "tr_04",
+      "category": "translation",
+      "input": {
+        "id": "tr_04",
+        "category": "translation",
+        "text": "What is your name?",
+        "source_lang": "en-IN",
+        "target_lang": "bn-IN",
+        "reference": "আপনার নাম কী?"
+      },
+      "result": {
+        "candidate": "আপনার নাম কী?",
+        "passed": true,
+        "reason": "The candidate's answer conveys the exact same meaning as the reference."
+      }
+    },
+    {
+      "id": "ld_01",
+      "category": "lang_detect",
+      "input": {
+        "id": "ld_01",
+        "category": "lang_detect",
+        "text": "नमस्ते, आप कैसे हैं?",
+        "expected_lang": "hi-IN"
+      },
+      "result": {
+        "detected": "hi-IN",
+        "expected": "hi-IN",
+        "passed": true
+      }
+    },
+    {
+      "id": "ld_02",
+      "category": "lang_detect",
+      "input": {
+        "id": "ld_02",
+        "category": "lang_detect",
+        "text": "வணக்கம், எப்படி இருக்கிறீர்கள்?",
+        "expected_lang": "ta-IN"
+      },
+      "result": {
+        "detected": "ta-IN",
+        "expected": "ta-IN",
+        "passed": true
+      }
+    },
+    {
+      "id": "ld_03",
+      "category": "lang_detect",
+      "input": {
+        "id": "ld_03",
+        "category": "lang_detect",
+        "text": "নমস্কার, আপনি কেমন আছেন?",
+        "expected_lang": "bn-IN"
+      },
+      "result": {
+        "detected": "bn-IN",
+        "expected": "bn-IN",
+        "passed": true
+      }
+    },
+    {
+      "id": "rt_01",
+      "category": "round_trip",
+      "input": {
+        "id": "rt_01",
+        "category": "round_trip",
+        "text": "नमस्ते",
+        "lang": "hi-IN"
+      },
+      "result": {
+        "original": "नमस्ते",
+        "transcribed": "नमस्ते।",
+        "similarity": 0.923,
+        "passed": true
+      }
+    },
+    {
+      "id": "rt_02",
+      "category": "round_trip",
+      "input": {
+        "id": "rt_02",
+        "category": "round_trip",
+        "text": "வணக்கம்",
+        "lang": "ta-IN"
+      },
+      "result": {
+        "original": "வணக்கம்",
+        "transcribed": "வணக்கம்.",
+        "similarity": 0.933,
+        "passed": true
+      }
+    },
+    {
+      "id": "rt_03",
+      "category": "round_trip",
+      "input": {
+        "id": "rt_03",
+        "category": "round_trip",
+        "text": "ধন্যবাদ",
+        "lang": "bn-IN"
+      },
+      "result": {
+        "original": "ধন্যবাদ",
+        "transcribed": "ধন্যবাদ।",
+        "similarity": 0.933,
+        "passed": true
+      }
+    }
+  ]
+}
