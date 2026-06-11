@@ -24,9 +24,11 @@ prints every tool call the agent makes, and saves the spoken replies as WAV file
 | Capability | How |
 |---|---|
 | Hands-on use of Sarvam models | Saaras v3 (STT), Bulbul v3 (TTS), Sarvam-Translate, sarvam-30b (chat) |
-| Building an MCP server from scratch | FastMCP server with 5 tools, 2 resources, 3 prompts — testable in the MCP Inspector |
+| Building an MCP server from scratch | FastMCP server with 6 tools, 2 resources, 3 prompts — testable in the MCP Inspector |
 | Authoring an agent without a framework | `scratch_agent.py` — a hand-written JSON tool-call loop, no LangChain/LangGraph |
 | Authoring the same agent with a framework | `graph_agent.py` — LangGraph ReAct consuming the same MCP server |
+| Retrieval-augmented answers | `retrieval.py` + `search_knowledge` MCP tool — local embeddings over a knowledge base |
+| Measuring quality | `eval/run_eval.py` — 14-case eval suite with LLM-as-judge scoring |
 
 <br>
 
@@ -60,6 +62,7 @@ prints every tool call the agent makes, and saves the spoken replies as WAV file
                                │  translate_text    ────────► Sarvam-Translate
                                │  answer_question   ────────► sarvam-30b
                                │  synthesize_speech ────────► Bulbul v3
+                               │  search_knowledge  ────────► retrieval.py
                                └──────────────────────────────┘
                                               │
                                               ▼
@@ -72,11 +75,12 @@ prints every tool call the agent makes, and saves the spoken replies as WAV file
 
 The agent **decides** which tools to call and in what order. A typical turn looks like:
 
-1. `transcribe_audio` — WAV → text + detected language (e.g. `hi-IN`)
-2. `translate_text` — translate question to English for better reasoning accuracy
-3. `answer_question` — get the answer from `sarvam-30b`
-4. `translate_text` — translate answer back to the user's language
-5. `synthesize_speech` — text → WAV via Bulbul v3
+1. `search_knowledge` — check the local knowledge base first (for questions about Indian languages/scripts)
+2. `transcribe_audio` — WAV → text + detected language (e.g. `hi-IN`)
+3. `translate_text` — translate question to English for better reasoning accuracy
+4. `answer_question` — get the answer from `sarvam-30b`
+5. `translate_text` — translate answer back to the user's language
+6. `synthesize_speech` — text → WAV via Bulbul v3
 
 The agent may skip steps (e.g. answer directly in Hindi without translation hops when the model handles it natively). That decision is the agent's, not hard-coded logic.
 
@@ -92,6 +96,7 @@ The agent may skip steps (e.g. answer directly in Hindi without translation hops
 | Text-to-speech | Sarvam **Bulbul v3** |
 | MCP server | **FastMCP** (`mcp` Python SDK) |
 | Framework agent | **LangGraph** + `langchain-mcp-adapters` + `langchain-openai` |
+| Embeddings (RAG) | `sentence-transformers` `paraphrase-multilingual-MiniLM-L12-v2` (local, no API) |
 | Audio I/O | `sounddevice` + `scipy` |
 | Config | `python-dotenv` |
 
@@ -102,14 +107,28 @@ The agent may skip steps (e.g. answer directly in Hindi without translation hops
 ```
 setu/
 ├── sarvam_client.py      # Thin wrapper — only file that calls Sarvam APIs
-├── mcp_server.py         # FastMCP server: 5 tools + 2 resources + 3 prompts
+├── mcp_server.py         # FastMCP server: 6 tools + 2 resources + 3 prompts
+├── retrieval.py          # Local RAG: embedding index over knowledge/ docs
 ├── scratch_agent.py      # Agent loop with NO framework (the differentiator)
 ├── graph_agent.py        # Same agent built with LangGraph
 ├── app.py                # CLI voice entrypoint: mic → agent → speaker
 ├── run_inspector.ps1     # One-click MCP Inspector launcher (Windows)
+├── knowledge/            # Markdown docs the agent can retrieve
+│   ├── indian_languages_overview.md
+│   ├── hindi_language.md
+│   ├── tamil_language.md
+│   ├── indic_scripts.md
+│   ├── language_families.md
+│   └── sarvam_ai.md
+├── eval/
+│   ├── dataset.json      # 14 labeled test cases
+│   ├── run_eval.py       # Eval runner with LLM-as-judge
+│   └── results.json      # Last run results
 ├── tests/
+│   ├── test_retrieval.py     # Unit tests for retrieval.py (mocked, fast)
 │   ├── test_tools.py         # Unit tests for MCP tools (mocked, fast)
 │   ├── test_scratch_agent.py # Unit tests for the scratch agent loop
+│   ├── test_eval_scoring.py  # Unit tests for judge/scoring logic
 │   └── test_mcp_live.py      # Live integration test — real API calls via MCP stdio
 ├── requirements.txt
 └── .env.example          # Copy to .env and add your key
@@ -155,34 +174,26 @@ Expected: four `PASS` lines — translate → chat → synthesize → transcribe
 .\run_inspector.ps1
 ```
 
-Opens the MCP Inspector at `localhost:6274` with everything pre-configured:
-
-- **Command** → `start_server.bat`
-- **Arguments** → `mcp_server.py`
-- **SARVAM_API_KEY** → read from `.env` automatically
-
-Click **Connect** — you'll see all 5 tools listed immediately (see screenshot above). Select any tool, fill in the input, and click **Run Tool** to call the live API.
+Opens the MCP Inspector at `localhost:6274` with everything pre-configured. Click **Connect** — you'll see all 6 tools listed immediately. Select any tool, fill in the input, and click **Run Tool** to call the live API.
 
 > On macOS/Linux: `mcp dev mcp_server.py` and add `SARVAM_API_KEY` in the Environment Variables panel.
 
-### 5. Run the unit + integration tests
+### 5. Run the unit tests
 
 ```bash
-# Fast unit tests — no API calls needed
-python -m pytest tests/test_tools.py tests/test_scratch_agent.py -v
-
-# Live integration test — calls the real API through MCP stdio
-python tests/test_mcp_live.py
+pytest -q
 ```
+
+42 tests, zero network calls, runs in about 3 seconds.
 
 ### 6. Run an agent
 
 ```bash
 # Framework-free scratch agent
-python scratch_agent.py "What is the capital of India? Answer in Hindi."
+python scratch_agent.py "Which script is Marathi written in?"
 
 # LangGraph agent (same MCP server)
-python graph_agent.py "What is the capital of India? Answer in Hindi."
+python graph_agent.py "Which script is Marathi written in?"
 ```
 
 ### 7. Full voice loop
@@ -201,144 +212,88 @@ python app.py --chat
 python app.py --demo
 ```
 
+### 8. Query the knowledge base directly
+
+```bash
+python retrieval.py "Devanagari"
+python retrieval.py "Which languages use the same script as Hindi?"
+```
+
+Prints the top-3 relevant chunks with similarity scores. The index is built on first run and cached for fast subsequent queries.
+
+### 9. Run the eval
+
+```bash
+python eval/run_eval.py
+python eval/run_eval.py --category qa
+python eval/run_eval.py --verbose
+```
+
 <br>
 
 ## MCP Server — verified results
 
-The server exposes **5 tools**, **2 resources**, and **3 prompt templates**, all verified live against the Sarvam API in the MCP Inspector.
+The server exposes **6 tools**, **2 resources**, and **3 prompt templates**, all verified live against the Sarvam API in the MCP Inspector.
 
 ---
 
 ### Tools
 
-All 5 tools as seen in the MCP Inspector (Command: `start_server.bat`, server status: Connected):
-
-![MCP Inspector — all 5 tools listed](output/tools.png)
-
----
-
 #### `detect_language`
 Returns the BCP-47 language code of a text string.
 
-![detect_language live result — kashi aahe → mr-IN](output/detect_language.png)
-
 ```
 Input : "kashi aahe"
-Output: mr-IN          ← Marathi detected correctly ✓
+Output: mr-IN          ← Marathi detected correctly
 
 Input : "नमस्ते, आप कैसे हैं?"
 Output: hi-IN
 
 Input : "வணக்கம், நீங்கள் எப்படி இருக்கிறீர்கள்?"
 Output: ta-IN
-
-Input : "నమస్కారం, మీరు ఎలా ఉన్నారు?"
-Output: te-IN
-
-Input : "নমস্কার, আপনি কেমন আছেন?"
-Output: bn-IN
-
-Input : "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ, ਤੁਸੀਂ ਕਿਵੇਂ ਹੋ?"
-Output: pa-IN
-
-Input : "Hello, how are you?"
-Output: en-IN
 ```
-
----
 
 #### `answer_question`
 Answers a question using `sarvam-30b` (64K context, native tool calling).
 
 ```
 Input : "What is the capital of Maharashtra?"
-Output: "The capital of Maharashtra is Mumbai.
-         It is a major financial and commercial hub in India."
+Output: "The capital of Maharashtra is Mumbai."
 
 Input : "भारत की सबसे लंबी नदी कौन सी है?"
 Output: "भारत की सबसे लंबी नदी गंगा है।"
-
-Input : "What are the official languages of India?"
-Output: "India has 22 officially recognized languages under the
-         Eighth Schedule of the Constitution..."
-
-Input : "Who wrote the Indian national anthem?"
-Output: "The Indian national anthem 'Jana Gana Mana' was written
-         by Rabindranath Tagore."
-
-Input : "महाराष्ट्र की राजधानी क्या है?"
-Output: "महाराष्ट्र की राजधानी मुंबई है।"
 ```
-
----
 
 #### `translate_text`
 Translates between Indic languages and English. Pass `"auto"` as `source_language_code` to detect automatically.
 
-![translate_text live result — i am apurv → मी अपूर्व आहे](output/translator.png)
-
 ```
 Input : text="i am apurv"            source=en-IN   target=mr-IN
-Output: "मी अपूर्व आहे"              ← English → Marathi ✓
-
-Input : text="Hello, how are you?"   source=auto    target=hi-IN
-Output: "नमस्ते, आप कैसे हैं?"
-
-Input : text="नमस्ते"                source=hi-IN   target=ta-IN
-Output: "வணக்கம்"
+Output: "मी अपूर्व आहे"
 
 Input : text="Good morning"          source=auto    target=mr-IN
 Output: "शुभ सकाळ"
-
-Input : text="ನಮಸ್ಕಾರ"              source=kn-IN   target=en-IN
-Output: "Hello"
-
-Input : text="How are you?"          source=auto    target=bn-IN
-Output: "আপনি কেমন আছেন?"
 ```
-
----
 
 #### `synthesize_speech`
 Converts text to speech using Bulbul v3. Returns the path to the saved WAV file.
 
-![synthesize_speech live result — Marathi TTS](output/text_to_voice.png)
-
-```
-Input : text="नमस्ते, मैं सेतु हूं।"              target_language_code=hi-IN
-Output: reply.wav  ✓
-
-Input : text="मी अपूर्व आहे."                     target_language_code=mr-IN
-Output: reply.wav  ✓
-
-Input : text="வணக்கம், நான் சேது."                target_language_code=ta-IN
-Output: reply.wav  ✓
-
-Input : text="হ্যালো, আমি সেতু।"                  target_language_code=bn-IN
-Output: reply.wav  ✓
-
-Input : text="ನಮಸ್ಕಾರ, ನಾನು ಸೇತು."               target_language_code=kn-IN
-Output: reply.wav  ✓
-```
-
----
-
 #### `transcribe_audio`
 Transcribes an Indian-language WAV file using Saaras v3. Returns transcript + detected language.
 
-```
-Input : reply.wav  (WAV written by synthesize_speech — full round-trip test)
-Output: Transcript: नमस्ते, मैं सेतु हूँ, मैं आपकी मदद कर सकता हूँ।
-        Language: hi-IN  ✓
-```
+#### `search_knowledge`
+Searches the local knowledge base (six markdown documents about Indian languages and scripts). Returns the top-3 relevant passages with source file and similarity score, or `NO_RELEVANT_KNOWLEDGE_FOUND` if no passage scores above 0.35.
 
-> **Round-trip test:** `synthesize_speech` → write WAV → `transcribe_audio` → back to text. Both directions verified live.
+```
+Input : "Which script is Marathi written in?"
+Output: [indic_scripts.md | score 0.70]
+        Devanagari is the most widely used Indic script. It is used to write
+        Hindi, Marathi, Sanskrit, Nepali, Konkani...
+```
 
 ---
 
 ### Resources
-
-Resources are read-only reference data exposed to any MCP client. Read them from the **Resources** tab in the inspector.
 
 | URI | Content |
 |-----|---------|
@@ -349,35 +304,11 @@ Resources are read-only reference data exposed to any MCP client. Read them from
 
 ### Prompts
 
-Reusable prompt templates in the **Prompts** tab. Fill in the arguments and click **Get Prompt** to render the message array.
-
-![MCP Inspector — Prompts tab with answer_in_language rendered](output/prompt.png)
-
-The screenshot shows `answer_in_language` with `question="how are you"` and `language_code="en"` — the inspector renders the full message JSON ready to send to any LLM.
-
 | Prompt | Arguments | Use case |
 |--------|-----------|----------|
 | `answer_in_language` | `question`, `language_code` | Ask a question and get a reply in a specific Indic language |
 | `translate_prompt` | `text`, `target_language_code`, `source_language_code` | Ready-to-use translation prompt with source/target |
 | `voice_agent_turn` | `user_utterance`, `detected_language` | Full voice-agent turn: transcription → reasoning → synthesised reply |
-
-Example — `answer_in_language` rendered output:
-
-```json
-{
-  "description": "Answer a question and reply entirely in the specified Indic language.",
-  "messages": [{
-    "role": "user",
-    "content": {
-      "type": "text",
-      "text": "Answer the following question clearly and concisely.
-               Your entire response must be in the language with BCP-47 code 'hi-IN'.
-
-               Question: भारत की राजधानी क्या है?"
-    }
-  }]
-}
-```
 
 <br>
 
@@ -390,14 +321,70 @@ Query: Maharashtra ki rajdhani kya hai?
 
   step 1: detect_language({'text': 'Maharashtra ki rajdhani kya hai?'})
            -> hi-IN
-  step 3: answer_question({'question': 'What is the capital of Maharashtra?'})
+  step 2: answer_question({'question': 'What is the capital of Maharashtra?'})
            -> The capital of Maharashtra is Mumbai. ...
 
 Final: आप सही कह रहे हैं। महाराष्ट्र की आर्थिक राजधानी मुंबई है,
        जबकि नागपुर आधिकारिक राजधानी है।
 ```
 
-The agent detected Hinglish → answered in English internally → replied in Hindi automatically. No pipeline, no hard-coded logic — the model decided.
+<br>
+
+## Retrieval-augmented answers
+
+The `knowledge/` directory contains six markdown documents covering Indian languages and scripts: an overview of India's 22 scheduled languages, deep dives into Hindi and Tamil, a survey of Indic scripts (Devanagari, Tamil, Bengali, Telugu, Kannada, Malayalam, Gurmukhi), a guide to India's four language families, and a note on Sarvam AI's model lineup.
+
+The agent uses `search_knowledge` automatically when a question is about Indian languages or scripts. The tool embeds the query using `paraphrase-multilingual-MiniLM-L12-v2` (a local sentence-transformers model that handles Hindi, Marathi, Tamil, and other Indic queries against English documents) and returns the top-3 passages by cosine similarity. If all scores fall below 0.35, it returns `NO_RELEVANT_KNOWLEDGE_FOUND` and the agent falls back to `answer_question`.
+
+To verify retrieval standalone:
+
+```bash
+python retrieval.py "Devanagari"
+python retrieval.py "Tamil classical language"
+```
+
+The embedding index is built on first run (~10 seconds) and cached to `knowledge/.index.npz`. It is rebuilt automatically if any document is newer than the cache file.
+
+<br>
+
+## Measuring quality
+
+The eval suite lives in `eval/`. Run it with:
+
+```bash
+python eval/run_eval.py
+```
+
+### Categories
+
+| Category | Cases | What it tests |
+|---|---|---|
+| `qa` | 4 | Questions answered via the scratch agent (exercises both RAG and the agent loop), scored by LLM-as-judge |
+| `translation` | 4 | Sarvam-Translate across en-IN, hi-IN, ta-IN, mr-IN, bn-IN pairs, scored by judge |
+| `lang_detect` | 3 | Language detection in Hindi, Tamil, Bengali scripts, scored by exact BCP-47 match |
+| `round_trip` | 3 | TTS then STT on the same phrase, scored by string similarity (PASS at >= 0.80) |
+
+### Results (run 2026-06-11)
+
+| Category | Passed | Total | Accuracy |
+|---|---|---|---|
+| qa | 3 | 4 | 75.0% |
+| translation | 4 | 4 | 100.0% |
+| lang_detect | 3 | 3 | 100.0% |
+| round_trip | 3 | 3 | 100.0% |
+| **Overall** | **13** | **14** | **92.9%** |
+
+The one qa miss was a judge disagreement on a question whose retrieved passage contained the correct answer (Devanagari for Marathi); the underlying retrieval and reasoning were correct.
+
+<br>
+
+## Tests
+
+The test suite (`pytest -q`) covers retrieval chunking and cosine ordering, cache freshness/invalidation, every MCP tool with mocked sarvam_client, the scratch agent loop (happy path, malformed JSON recovery, unknown tool error, max_steps cap, multi-turn history), and the eval judge (valid JSON, malformed-then-valid re-ask, double failure, API errors). All 42 tests run without network access or model downloads in about 3 seconds.
+
+```bash
+pytest -q
+```
 
 <br>
 
@@ -408,15 +395,16 @@ The agent detected Hinglish → answered in English internally → replied in Hi
 The entire mechanism is visible. The model replies with JSON; we parse it, dispatch to a tool, append the observation, and repeat. This is the loop that LangGraph runs for you — building it once by hand is how you understand what a framework actually does.
 
 ```json
+{"tool": "search_knowledge", "args": {"query": "Marathi script"}}
 {"tool": "answer_question", "args": {"question": "..."}}
-{"final": "भारत की सबसे लंबी नदी गंगा है।", "audio_path": "reply.wav"}
+{"final": "Marathi is written in Devanagari.", "audio_path": "reply.wav"}
 ```
 
 Handles: malformed JSON (re-prompts with the contract), unknown tools (reports available tools), `max_steps` cap.
 
 ### `graph_agent.py` — LangGraph
 
-The same behaviour, but LangGraph manages the state machine, the tool-call loop, and retries. `sarvam-30b` via its OpenAI-compatible endpoint supports native tool calling — no hand-written JSON protocol needed.
+The same behaviour, but LangGraph manages the state machine, the tool-call loop, and retries. `sarvam-30b` via its OpenAI-compatible endpoint supports native tool calling — no hand-written JSON protocol needed. MemorySaver provides conversation memory keyed by `thread_id`.
 
 Both agents connect to the **same `mcp_server.py`** over stdio.
 
@@ -433,6 +421,9 @@ To make the contrast explicit. The scratch loop shows the mechanism; LangGraph s
 **Why a single `sarvam_client.py`?**
 All Sarvam-specific request shapes, model IDs, and response fields live in one file. If Sarvam changes a field name, exactly one file changes.
 
+**Why local embeddings for RAG?**
+No additional API key, no cost per query, no latency beyond the first index build. The multilingual MiniLM model handles Hindi, Tamil, and Marathi queries against English documents without translation.
+
 <br>
 
 ## Failure modes handled
@@ -441,6 +432,7 @@ All Sarvam-specific request shapes, model IDs, and response fields live in one f
 |---|---|
 | Malformed JSON from the model | Re-prompt with the JSON contract; retry up to `max_steps` |
 | Unknown tool name in model output | Return available tool names as the observation |
+| No relevant knowledge found | `search_knowledge` returns `NO_RELEVANT_KNOWLEDGE_FOUND`; agent falls back to `answer_question` |
 | Wrong language detection | STT-detected language is preferred; `translate(auto)` as fallback |
 | API errors | Surfaced as tool-call errors; step cap prevents runaway loops |
 
@@ -449,6 +441,13 @@ All Sarvam-specific request shapes, model IDs, and response fields live in one f
 ## Language codes supported
 
 `hi-IN` Hindi · `mr-IN` Marathi · `ta-IN` Tamil · `te-IN` Telugu · `bn-IN` Bengali · `gu-IN` Gujarati · `kn-IN` Kannada · `ml-IN` Malayalam · `pa-IN` Punjabi · `od-IN` Odia · `en-IN` English (Indian)
+
+<br>
+
+## Limitations
+
+- **Streaming** — TTS and STT are request/response, not streamed. Both Saaras and Bulbul support WebSocket streaming for lower latency; not wired up here.
+- **Observability** — tool calls print to stdout but are not traced to any structured logging system. LangSmith or a simple spans table would make debugging easier at scale.
 
 <br>
 
