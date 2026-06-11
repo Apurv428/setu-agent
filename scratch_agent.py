@@ -51,12 +51,25 @@ def _synthesize_speech(text: str, target_language_code: str) -> str:
     return sc.synthesize(text, target_language_code=target_language_code)
 
 
+def _search_knowledge(query: str) -> str:
+    import retrieval
+    LOW_SCORE = 0.35
+    results = retrieval.search(query, k=3)
+    if not results or all(r["score"] < LOW_SCORE for r in results):
+        return "NO_RELEVANT_KNOWLEDGE_FOUND"
+    parts = []
+    for r in results:
+        parts.append(f"[{r['source']} | score {r['score']:.2f}]\n{r['text']}")
+    return "\n\n".join(parts)
+
+
 TOOLS: dict = {
     "transcribe_audio":  _transcribe_audio,
     "detect_language":   _detect_language,
     "translate_text":    _translate_text,
     "answer_question":   _answer_question,
     "synthesize_speech": _synthesize_speech,
+    "search_knowledge":  _search_knowledge,
 }
 
 # ---------------------------------------------------------------------------
@@ -66,6 +79,13 @@ TOOLS: dict = {
 SYSTEM = """\
 You are Setu, a multilingual voice assistant powered by Sarvam AI.
 You have access to these tools:
+
+  search_knowledge(query: str)
+    Search the local knowledge base about Indian languages and scripts.
+    Use this BEFORE answer_question when the user asks about Indian languages,
+    scripts, speaker counts, history, or related facts.
+    Returns relevant passages, or "NO_RELEVANT_KNOWLEDGE_FOUND" if nothing matches —
+    in that case fall back to answer_question.
 
   transcribe_audio(audio_path: str)
     Transcribes a WAV file. Returns transcript text and detected language code.
@@ -84,6 +104,9 @@ You have access to these tools:
 
 Instructions:
 - If the input is an audio file path, start by transcribing it.
+- For questions about Indian languages, scripts, or linguistic facts, call
+  search_knowledge first. If it returns NO_RELEVANT_KNOWLEDGE_FOUND, proceed
+  with answer_question.
 - Detect or infer the user's language and reply in that same language.
 - Translate to English before calling answer_question if that helps accuracy.
 - Always call synthesize_speech last so the reply is spoken.

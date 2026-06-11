@@ -69,6 +69,20 @@ def synthesize_speech(text: str, target_language_code: str) -> str:
     return sc.synthesize(text, target_language_code=target_language_code)
 
 
+@mcp.tool()
+def search_knowledge(query: str) -> str:
+    """Search the local knowledge base about Indian languages and scripts. Use this BEFORE answer_question when the user asks about Indian languages, scripts, or related facts."""
+    import retrieval
+    LOW_SCORE = 0.35
+    results = retrieval.search(query, k=3)
+    if not results or all(r["score"] < LOW_SCORE for r in results):
+        return "NO_RELEVANT_KNOWLEDGE_FOUND"
+    parts = []
+    for r in results:
+        parts.append(f"[{r['source']} | score {r['score']:.2f}]\n{r['text']}")
+    return "\n\n".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # Resources — static reference data exposed to any MCP client
 # ---------------------------------------------------------------------------
