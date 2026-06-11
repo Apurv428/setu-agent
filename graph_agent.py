@@ -11,11 +11,13 @@ Run:  python graph_agent.py [optional query text]
 """
 
 import asyncio
+import json as _json
 import os
 import sys
 import uuid
 
 from dotenv import load_dotenv
+from langchain_core.messages import ToolMessage
 from langchain_openai import ChatOpenAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
@@ -35,6 +37,16 @@ def _llm() -> ChatOpenAI:
     )
 
 
+def _stringify_tool_content(state: dict) -> list:
+    """Sarvam's API requires tool message content to be a plain string, not a list of parts."""
+    fixed = []
+    for m in state["messages"]:
+        if isinstance(m, ToolMessage) and not isinstance(m.content, str):
+            m = m.model_copy(update={"content": _json.dumps(m.content)})
+        fixed.append(m)
+    return fixed
+
+
 async def run(user_input: str, thread_id: str = "default") -> str:
     """
     Run the LangGraph ReAct agent.
@@ -44,18 +56,18 @@ async def run(user_input: str, thread_id: str = "default") -> str:
                to maintain memory across turns.
     Returns the final answer string.
     """
-    async with MultiServerMCPClient({
+    mcp_client = MultiServerMCPClient({
         "sarvam": {
             "command": "python",
             "args":    ["mcp_server.py"],
             "transport": "stdio",
         }
-    }) as mcp_client:
-        tools  = mcp_client.get_tools()
-        agent  = create_react_agent(_llm(), tools, checkpointer=_checkpointer)
-        config = {"configurable": {"thread_id": thread_id}}
-        result = await agent.ainvoke({"messages": [("user", user_input)]}, config)
-        return result["messages"][-1].content
+    })
+    tools  = await mcp_client.get_tools()
+    agent  = create_react_agent(_llm(), tools, prompt=_stringify_tool_content, checkpointer=_checkpointer)
+    config = {"configurable": {"thread_id": thread_id}}
+    result = await agent.ainvoke({"messages": [("user", user_input)]}, config)
+    return result["messages"][-1].content
 
 
 # ---------------------------------------------------------------------------

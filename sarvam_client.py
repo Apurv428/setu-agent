@@ -13,7 +13,7 @@ from openai import OpenAI as _OpenAI
 from sarvamai import SarvamAI
 from sarvamai.play import save as _save_audio
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 _client: SarvamAI | None = None
 _openai_client: _OpenAI | None = None
@@ -88,12 +88,30 @@ def chat(messages: list[dict], model: str = "sarvam-30b") -> str:
     messages: OpenAI-style list of {"role": ..., "content": ...} dicts.
     Returns the assistant's reply text.
     """
+    import json as _json
+
     client = _get_openai_client()
     resp = client.chat.completions.create(
         model=model,
         messages=messages,
     )
-    return resp.choices[0].message.content
+    message = resp.choices[0].message
+    content = message.content
+
+    # sarvam-30b may return native tool_calls with null content even when no tools
+    # are registered; convert to the JSON protocol the scratch agent expects.
+    if content is None:
+        tool_calls = getattr(message, "tool_calls", None)
+        if tool_calls:
+            call = tool_calls[0]
+            try:
+                args = _json.loads(call.function.arguments)
+            except Exception:
+                args = {}
+            return _json.dumps({"tool": call.function.name, "args": args})
+        return ""
+
+    return content
 
 
 def synthesize(text: str, target_language_code: str, out_path: str = "reply.wav", speaker: str = "shubh") -> str:
