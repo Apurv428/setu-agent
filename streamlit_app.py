@@ -29,16 +29,14 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Warm the retrieval index once per server process
+# Retrieval index — loaded once per server process, lazily on first query
 # ---------------------------------------------------------------------------
 
 @st.cache_resource(show_spinner="Loading knowledge index...")
-def _load_retrieval():
+def _get_retrieval():
     import retrieval
     retrieval._ensure_index()
-    return True
-
-_load_retrieval()
+    return retrieval
 
 # ---------------------------------------------------------------------------
 # Session state initialisation
