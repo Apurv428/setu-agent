@@ -10,3 +10,4 @@ scipy
 sentence-transformers
 numpy
 pytest
+streamlit>=1.31
