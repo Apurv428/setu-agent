@@ -2,11 +2,15 @@
 
 > *Setu* (सेतु) means **bridge**. Speak a question in any major Indian language; an AI agent reasons over Sarvam's speech, translation, and chat tools and speaks the answer back in your language.
 
+**Live demo: [setu-agent.onrender.com](https://setu-agent.onrender.com)**
+
 <br>
 
 ## Demo
 
-Run the scripted demo without a microphone:
+Try the live web app at [setu-agent.onrender.com](https://setu-agent.onrender.com) — no setup needed.
+
+Or run the scripted CLI demo without a microphone:
 
 ```bash
 python app.py --demo
@@ -29,20 +33,21 @@ prints every tool call the agent makes, and saves the spoken replies as WAV file
 | Authoring the same agent with a framework | `graph_agent.py` — LangGraph ReAct consuming the same MCP server |
 | Retrieval-augmented answers | `retrieval.py` + `search_knowledge` MCP tool — local embeddings over a knowledge base |
 | Measuring quality | `eval/run_eval.py` — 14-case eval suite with LLM-as-judge scoring |
+| Web interface + cloud deployment | `streamlit_app.py` deployed on Render with mic and text input |
 
 <br>
 
 ## Architecture
 
 ```
-  User speaks  (Hindi / Marathi / Tamil / ...)
-        │  audio in
-        ▼
-  ┌──────────────────────────┐
-  │  app.py  (CLI)           │  record mic → run agent → play reply
-  └──────────────────────────┘
-        │  audio path / text query
-        ▼
+  User (browser or CLI)
+        │
+        ├── streamlit_app.py  (web — text input + mic recording)
+        │
+        └── app.py            (CLI — mic, --chat REPL, --text, --demo)
+                │
+                │  audio path / text query
+                ▼
   ┌──────────────────────────┐      tool calls over MCP / JSON protocol
   │  Agent orchestrator      │ ─────────────────────────────────────────┐
   │                          │                                          │
@@ -97,7 +102,9 @@ The agent may skip steps (e.g. answer directly in Hindi without translation hops
 | MCP server | **FastMCP** (`mcp` Python SDK) |
 | Framework agent | **LangGraph** + `langchain-mcp-adapters` + `langchain-openai` |
 | Embeddings (RAG) | `sentence-transformers` `paraphrase-multilingual-MiniLM-L12-v2` (local, no API) |
-| Audio I/O | `sounddevice` + `scipy` |
+| Web interface | **Streamlit** — text input + `st.audio_input` mic widget |
+| Audio I/O (CLI) | `sounddevice` + `scipy` |
+| Deployment | **Render** (web service, auto-deploy from GitHub) |
 | Config | `python-dotenv` |
 
 <br>
@@ -112,6 +119,8 @@ setu/
 ├── scratch_agent.py      # Agent loop with NO framework (the differentiator)
 ├── graph_agent.py        # Same agent built with LangGraph
 ├── app.py                # CLI voice entrypoint: mic → agent → speaker
+├── streamlit_app.py      # Web interface: text + mic → agent → chat UI
+├── render.yaml           # Render deployment config
 ├── run_inspector.ps1     # One-click MCP Inspector launcher (Windows)
 ├── knowledge/            # Markdown docs the agent can retrieve
 │   ├── indian_languages_overview.md
@@ -168,7 +177,15 @@ python sarvam_client.py
 
 Expected: four `PASS` lines — translate → chat → synthesize → transcribe.
 
-### 4. Inspect the MCP server (Windows)
+### 4. Run the Streamlit web app
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Opens at `http://localhost:8501`. Type a question or use the mic tab to record. Each reply shows the tool call trace in a collapsible expander, and the synthesized audio plays inline.
+
+### 5. Inspect the MCP server (Windows)
 
 ```powershell
 .\run_inspector.ps1
@@ -178,7 +195,7 @@ Opens the MCP Inspector at `localhost:6274` with everything pre-configured. Clic
 
 > On macOS/Linux: `mcp dev mcp_server.py` and add `SARVAM_API_KEY` in the Environment Variables panel.
 
-### 5. Run the unit tests
+### 6. Run the unit tests
 
 ```bash
 pytest -q
@@ -186,7 +203,7 @@ pytest -q
 
 42 tests, zero network calls, runs in about 3 seconds.
 
-### 6. Run an agent
+### 7. Run an agent from the CLI
 
 ```bash
 # Framework-free scratch agent
@@ -196,7 +213,7 @@ python scratch_agent.py "Which script is Marathi written in?"
 python graph_agent.py "Which script is Marathi written in?"
 ```
 
-### 7. Full voice loop
+### 8. Full voice loop (CLI)
 
 ```bash
 # Text input (no mic required)
@@ -212,7 +229,7 @@ python app.py --chat
 python app.py --demo
 ```
 
-### 8. Query the knowledge base directly
+### 9. Query the knowledge base directly
 
 ```bash
 python retrieval.py "Devanagari"
@@ -221,13 +238,39 @@ python retrieval.py "Which languages use the same script as Hindi?"
 
 Prints the top-3 relevant chunks with similarity scores. The index is built on first run and cached for fast subsequent queries.
 
-### 9. Run the eval
+### 10. Run the eval
 
 ```bash
 python eval/run_eval.py
 python eval/run_eval.py --category qa
 python eval/run_eval.py --verbose
 ```
+
+<br>
+
+## Web interface
+
+The Streamlit app (`streamlit_app.py`) is the recommended way to try Setu without setting up a local environment.
+
+**Live:** [setu-agent.onrender.com](https://setu-agent.onrender.com)
+
+**Two input modes:**
+- **Text tab** — type any question, press Send
+- **Voice tab** — click the mic, speak, click Stop — the agent runs automatically
+
+**What you see per turn:**
+- The assistant's text answer in a chat bubble
+- A collapsible **Tool calls** expander showing every step the agent took (e.g. `step 1: search_knowledge(...)`)
+- The synthesized Bulbul v3 audio playing inline below the answer
+
+**Memory** is kept across turns within the browser session. Use the **Clear conversation** button in the sidebar to start fresh.
+
+**Good questions to try:**
+- "Which script is Marathi written in?" — triggers `search_knowledge` before answering
+- "How many characters does the Tamil script have?" — retrieval + precise answer
+- "Translate 'good morning' to Tamil"
+- "What are the four language families of India?"
+- Then follow up with "Which one has the most speakers?" — tests memory
 
 <br>
 
@@ -423,6 +466,9 @@ All Sarvam-specific request shapes, model IDs, and response fields live in one f
 
 **Why local embeddings for RAG?**
 No additional API key, no cost per query, no latency beyond the first index build. The multilingual MiniLM model handles Hindi, Tamil, and Marathi queries against English documents without translation.
+
+**Why Streamlit for the web interface?**
+Minimal code on top of the existing agent. `st.audio_input` gives a real mic widget with no JavaScript, `st.cache_resource` keeps the embedding model loaded across requests, and Render auto-deploys from GitHub on every push.
 
 <br>
 
